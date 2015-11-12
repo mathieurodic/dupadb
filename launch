@@ -1,0 +1,46 @@
+#!/bin/bash
+
+# test if enough arguments are provided
+if [ $# -le 1 ]; then
+    echo "A source file path should be supplied as an argument"
+    exit 1
+fi
+
+# arguments validation
+FILE_PATH=$2
+if [ ! -f $FILE_PATH ]; then
+   echo "No such file: $FILE_PATH"
+   exit 2
+fi
+FILE_PATH_WITHOUT_EXTENSION="${FILE_PATH%.cpp}"
+DIRECTORY_PATH=$(dirname "${FILE_PATH}")
+DIRECTORY_PATH="builds/$DIRECTORY_PATH"
+FILE_EXEC="./builds/$FILE_PATH_WITHOUT_EXTENSION ${@:2}"
+
+# create output directory if not existent
+if [ ! -d $DIRECTORY_PATH ]; then
+    mkdir -p $DIRECTORY_PATH
+    if [ ! $? ]; then
+        echo "Unable to create directory: $DIRECTORY_PATH"
+        exit 3
+    fi
+fi
+
+# different action depending on the case
+case $1 in
+    run)
+        ./compile $FILE_PATH -o builds/$FILE_PATH_WITHOUT_EXTENSION && \
+            $FILE_EXEC
+        EXIT_CODE=$?;;
+    dbg)
+        ./compile -g $FILE_PATH -o builds/$FILE_PATH_WITHOUT_EXTENSION && \
+            valgrind -v --leak-check=full --track-origins=yes $FILE_EXEC 2>&1 | \
+            grep --color=always -E "|ERROR SUMMARY|are \\w+ lost| [0-9]+ errors"
+        EXIT_CODE=$?;;
+    *)
+        echo "Invalid action: $1"
+        exit 1
+esac
+
+echo
+exit $EXIT_CODE

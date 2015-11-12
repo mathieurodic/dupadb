@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# initial parameters
+COMPILER="clang++"
+INCLUDE_FOLDER="src"
+LIBS=""
+NOWARNING_FLAGS="c++11-compat-deprecated-writable-strings invalid-offsetof"
+OPTIMISATION_LEVEL="3"
+
+# build command
+COMMAND="$COMPILER $@ -O$OPTIMISATION_LEVEL -std=c++11"
+for LIB in $LIBS; do
+    COMMAND+=" -l$LIB"
+done
+COMMAND+=" -Wall"
+for NOWARNING_FLAG in $NOWARNING_FLAGS; do
+    COMMAND+=" -Wno-$NOWARNING_FLAG"
+done
+COMMAND+=" -I$INCLUDE_FOLDER"
+
+# launch command
+`$COMMAND`
+EXIT_CODE=$?
+echo
+exit $EXIT_CODE
