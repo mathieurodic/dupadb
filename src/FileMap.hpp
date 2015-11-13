@@ -29,7 +29,6 @@ struct FileBlock {
         ++pointers_count[values];
     }
     inline FileBlock(const int& file_handle, const size_t file_offset) {
-        // warning("@%u: %u = %u x %u", file_offset, block_size, sizeof(value_t), capacity);
         values = (value_t*) mmap(NULL, block_size, PROT_READ | PROT_WRITE, MAP_SHARED, file_handle, file_offset);
         ++pointers_count[values];
     }
@@ -69,7 +68,7 @@ std::unordered_map<value_t*, uint16_t> FileBlock<value_t, size_t, block_size>::p
 
 
 
-template <typename header_t, typename value_t, typename size_t, size_t block_size, size_t block_cache_maxcount>
+template <typename header_t, typename value_t, typename size_t, size_t reserve_size, size_t block_size, size_t block_cache_maxcount>
 struct FileMap {
 
     // file-related information
@@ -130,21 +129,22 @@ struct FileMap {
         if (fstat(file_handle, &file_stat) == -1) {
            fatal("error while reading stat for: `%s`", file_path);
         }
-        return file_stat.st_size;
+        return (file_size = file_stat.st_size);
     }
-    inline const bool set_file_size(const size_t& new_file_size) {
+    inline const size_t set_file_size(const size_t& new_file_size) {
         static const char zero = '\0';
-        if (get_file_size() >= new_file_size) {
-            return true;
+        if (file_size >= new_file_size) {
+            return file_size;
         }
-        if (lseek(file_handle, new_file_size, SEEK_SET) == -1) {
+        size_t real_file_size = new_file_size + (reserve_size - new_file_size % reserve_size);
+        if (lseek(file_handle, real_file_size - 1, SEEK_SET) == -1) {
             fatal("error while seeking file: `%s`", file_path);
         }
         if (write(file_handle, &zero, 1) == 0) {
             fatal("error while resizing file: `%s`", file_path);
         }
-        file_size = new_file_size;
-        return true;
+        file_size = real_file_size;
+        return new_file_size;
     }
 
     // get/set data
@@ -152,7 +152,6 @@ struct FileMap {
         // get indices
         size_t block_index = index / block_capacity;
         size_t block_value_index = index % block_capacity;
-        // warning("%u <=> [%u][%u]", index, block_index, block_value_index);
         // try to find in a listed block
         auto block_iterator = block_cache.find(block_index);
         if (block_iterator != block_cache.end()) {
@@ -180,8 +179,8 @@ struct FileMap {
 
 };
 
-template <typename header_t, typename value_t, typename size_t, size_t block_size, size_t block_cache_length>
-const size_t FileMap<header_t, value_t, size_t, block_size, block_cache_length>::block_capacity = FileMap<header_t, value_t, size_t, block_size, block_cache_length>::block_t::capacity;
+template <typename header_t, typename value_t, typename size_t, size_t reserve_size, size_t block_size, size_t block_cache_length>
+const size_t FileMap<header_t, value_t, size_t, reserve_size, block_size, block_cache_length>::block_capacity = FileMap<header_t, value_t, size_t, reserve_size, block_size, block_cache_length>::block_t::capacity;
 
 
 #endif // __INCLUDED__FileMap_hpp__

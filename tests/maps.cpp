@@ -91,28 +91,39 @@ int main(int argc, char const *argv[]) {
     }
 
     message("basic tests on file maps"); {
-        uint64_t m = 16;
-        uint64_t n = 16 * 256 * 256;
-        notice("insert %lu models", n);
-            FileMap<Header, Model, uint32_t, 4096, 16> map("storage/test_maps");
+        uint32_t m = 8;
+        uint32_t n = 8 * 256 * 256;
+        uint32_t n2 = 2 * n;
+        FileMap<Header, Model, uint32_t, 4*1024*1024, 4096, 256> map("storage/test_maps");
+        // exit(0);
+        notice("insert %u models with reservation", n);
             debug("reserve space");
             map.reserve(n);
             debug("insert");
-            for (int i=0; i<n; i++) {
-                map[i] = Model(i, i % 4, ":)", "this is a test");
+            uint32_t i_max=0;
+            for (; i_max<n; i_max++) {
+                map[i_max] = Model(i_max, i_max % 4, ":)", "this is a test");
             }
-        notice("show %lu models", m);
-            for (int i=0; i<m; i++) {
-                map[rand() % n].show();
+        notice("insert %u models without reservation", n);
+            debug("insert");
+            for (; i_max<n2; i_max++) {
+                map[i_max] = Model(i_max, i_max % 4, ":)", "this is a test");
             }
-        notice("query %lu models randomly", n);
-            int sum = 0;
-            for (int i=0; i<n; i++) {
-                sum += map[rand() % n].id;
+        notice("inserted %u models", i_max);
+        notice("show %u random models", m);
+            for (uint32_t i=0; i<m; i++) {
+                const uint32_t id = rand() % i_max;
+                debug("id = %u", id);
+                map[id].show();
+            }
+        notice("query %u models randomly", n);
+            uint32_t sum = 0;
+            for (uint32_t i=0; i<n; i++) {
+                sum += map[rand() % i_max].id;
             }
             debug("checksum = %u", sum);
-        notice("query %lu models sequentially", n);
-            for (int i=0; i<n; i++) {
+        notice("query %u models sequentially", n);
+            for (uint32_t i=0; i<n; i++) {
                 sum += map[i].id;
             }
             debug("checksum = %u", sum);
