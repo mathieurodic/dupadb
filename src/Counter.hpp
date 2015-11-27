@@ -2,40 +2,29 @@
 #define __INCLUDED__Counter_hpp__
 
 
+#include "DupaDB.hpp"
 #include "FileMap.hpp"
-
-
-struct DupaHeader {
-    char type[4];
-    struct {
-        uint8_t main;
-        uint8_t revision;
-        uint16_t release;
-    } version;
-
-    inline void set_dupa() {
-        memcpy(type, "DUPA", 4);
-        version = {
-            .main = 0,
-            .revision = 1,
-            .release = 1,
-        };
-    }
-};
 
 
 template <typename size_t>
 struct CounterHeader : DupaHeader {
-    char reserved2[4];
+    char subtype[4];
     uint32_t intsize;
     size_t counter;
 
     inline void set() {
         set_dupa();
-        memcpy(reserved2, "CNTR", 4);
+        memcpy(subtype, "CNTR", 4);
         intsize = sizeof(size_t);
         counter = 0;
     }
+    inline const bool check() {
+        return
+            check_dupa() &&
+            !memcmp(subtype, "CNTR", 4) &&
+            (intsize == sizeof(size_t));
+    }
+
 };
 
 template <typename value_t, typename size_t, bool must_copy_id=false, size_t id_offset=0, size_t reserve_size=1048576, size_t block_size=4096, size_t block_cache_maxcount=16>

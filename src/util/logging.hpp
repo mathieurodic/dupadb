@@ -51,7 +51,7 @@ inline void log_reset_time() {
     } \
     fprintf(LOG_OUTPUT, "\n" COLOR TYPE " "); \
     fprintf(LOG_OUTPUT, STYLE_NORMAL COLOR); \
-    for (int i=0, n=16-strlen(TYPE); i<n; i++) { \
+    for (int i=0, n=12-strlen(TYPE); i<n; i++) { \
         fprintf(LOG_OUTPUT, "-"); \
     } \
     char _log_buffer[1024]; \

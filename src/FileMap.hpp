@@ -107,6 +107,8 @@ struct FileMap {
         header = (header_t*) mmap(NULL, sizeof(header_t), PROT_READ | PROT_WRITE, MAP_SHARED, file_handle, 0);
         if (must_set_header) {
             header->set();
+        } else if (!header->check()) {
+            fatal("wrong header for file: %s", _file_path);
         }
         // initialize values
         block_cache_count = 0;
@@ -147,15 +149,13 @@ struct FileMap {
         return new_file_size;
     }
 
-    // get/set data
-    inline value_t& operator [] (size_t index) {
-        // get indices
-        size_t block_index = index / block_capacity;
-        size_t block_value_index = index % block_capacity;
+    // get a block
+    inline block_t& get_block(size_t block_index) {
         // try to find in a listed block
         auto block_iterator = block_cache.find(block_index);
         if (block_iterator != block_cache.end()) {
-            return block_iterator->second[block_value_index];
+            // TODO: push_back the block's index
+            return block_iterator->second;
         }
         // otherwise, instanciate a block
         // ...destroy a block if maximum capacity has been reached
@@ -173,7 +173,10 @@ struct FileMap {
         block_t block(file_handle, (block_index + 1) * block_size);
         block_iterator = block_cache.insert(std::pair<size_t, block_t>(block_index, block)).first;
         block_cache_queue.push_back(block_index);
-        return block_iterator->second[block_value_index];
+        return block_iterator->second;
+    }
+    inline value_t& operator [] (size_t index) {
+        return get_block(index / block_capacity)[index % block_capacity];
     }
 
 

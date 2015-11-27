@@ -33,7 +33,7 @@ int main(int argc, char const *argv[]) {
         uint32_t n = 16 * 65536;
 
         notice("instanciate counter")
-            Counter<Model, uint32_t, true> counter("storage/test_indices");
+            Counter<Model, uint32_t, true, 0, 16*1024*1024, 4096, 16> counter("storage/test_indices");
 
         notice("append an instance") {
             Model instance(2, "hello world", "this is nothing but a simple test...");
