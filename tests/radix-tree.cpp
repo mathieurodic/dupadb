@@ -5,6 +5,9 @@
 #include <stdint.h>
 
 
+#pragma pack(1)
+
+
 template <typename key_t, typename value_t, typename size_t, size_t key_offset>
 struct RadixTree {
 
@@ -14,7 +17,7 @@ struct RadixTree {
             size_t is_internal__index;
             struct {
                 uint8_t is_internal : 1;
-                size_t index : sizeof(size_t) - 1;
+                size_t index : 8 * sizeof(size_t) - 1;
             };
         };
         node_t() : is_internal__index(0) {}
@@ -130,8 +133,8 @@ struct RadixTree {
         node_t& result_node = blocks[result.block_index].nodes[result.node_index];
 
         printf("\n");
-        value.show();
-        result.show();
+        // value.show();
+        // result.show();
 
         // exit if key exists
         if (result.depth == sizeof(key)) {
@@ -164,7 +167,6 @@ struct RadixTree {
                 leaf_block.nodes[c1].index = result_node.index;
                 // node leaf is created
                 uint8_t c2 = * ((const unsigned char*) &(key) + result.depth + 1);
-                printf("%u\n", values.size());
                 leaf_block.nodes[c2].index = values.size();
                 values.push_back(value);
                 // former leaf block becomes internal
