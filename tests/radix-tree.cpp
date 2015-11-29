@@ -127,7 +127,10 @@ struct RadixTree {
     inline const bool insert(const value_t& value) {
         const key_t& key = value2key(value);
         lookup_result_t result = lookup(key);
-        const node_t& result_node = blocks[result.block_index].nodes[result.node_index];
+        node_t& result_node = blocks[result.block_index].nodes[result.node_index];
+
+        printf("\n");
+        value.show();
         result.show();
 
         // exit if key exists
@@ -140,39 +143,102 @@ struct RadixTree {
             return false;
         }
 
+        {
+            node_t& result_node = blocks[result.block_index].nodes[* ((const unsigned char*) &(key) + result.depth)];
+            // if the result node points to nothing... yet!
+            if (result_node.index == 0) {
+                result_node.index = values.size();
+                values.push_back(value);
+                show();
+                return true;
+            }
+            // otherwise, the result node becomes an internal node, and its value goes to a leaf node together with the new one
+            else {
+                // create new leaf block
+                size_t leaf_block_index = blocks.size();
+                blocks.resize(leaf_block_index + 1);
+                block_t& leaf_block = blocks[leaf_block_index];
+                // node leaf is copied from result leaf
+                value_t& result_value = values[result_node.index];
+                uint8_t c1 = * ((const unsigned char*) &(result_value) + key_offset + result.depth + 1);
+                leaf_block.nodes[c1].index = result_node.index;
+                // node leaf is created
+                uint8_t c2 = * ((const unsigned char*) &(key) + result.depth + 1);
+                printf("%u\n", values.size());
+                leaf_block.nodes[c2].index = values.size();
+                values.push_back(value);
+                // former leaf block becomes internal
+                block_t& result_block = blocks[result.block_index];
+                result_block.nodes[* ((const unsigned char*) &(key) + result.depth)].is_internal = 1;
+                result_block.nodes[* ((const unsigned char*) &(key) + result.depth)].index = leaf_block_index;
+                show();
+                return true;
+            }
+
+        }
+
+        // otherwise, it points to a value
+
+
+        // TODO: move previous value node, read pointer to next character
+
         // add new block
         size_t block_index = blocks.size();
         blocks.resize(block_index + 1);
         block_t& block = blocks[block_index];
         // initialize leaf node in that block
-        node_t& node = block[((const char*)&key)[result.depth + 1]];
-        printf("CHAR %c\n", ((const char*)&key)[result.depth + 1]);
+        node_t& node = block[((const unsigned char*)&key)[result.depth + 1]];
         node.index = values.size();
         values.push_back(value);
         // change result from leaf to internal
         blocks[result.block_index].nodes[result.node_index].is_internal = 1;
         blocks[result.block_index].nodes[result.node_index].index = block_index;
 
+
+        printf("\n");
+        show();
+        printf("\n\n\n");
+
         return true;
     }
 
-    inline void show_blocks() const {
-        for (int j=0; j<blocks.size(); j++) {
-            printf("<block #%u>\n", j);
-            const block_t& block = blocks[j];
-            for (int i=0; i<256; i++) {
-                const node_t& node = block.nodes[i];
-                if (node) {
-                    if (node.is_internal) {
-                        printf("\t<node %-3u|%c block_index=%u>\n", i, i, node.index);
-                    } else {
-                        printf("\t<node %-3u|%c value_index=%u>\n\t\t", i, i, node.index);
-                        values[node.index].show();
-                    }
-                }
+    inline void show(const size_t block_index=0, const size_t depth=0) const {
+        const block_t& block = blocks[block_index];
+        if (block_index) {
+            printf("block #%u\n", block_index);
+        }
+        for (int n=0; n<256; n++) {
+            const node_t& node = block.nodes[n];
+            if (!node) {
+                continue;
+            }
+            for (size_t d=0; d<depth; d++) {
+                printf("    ");
+            }
+            printf("%c: ", n);
+            if (node.is_internal) {
+                show(node.index, depth + 1);
+            } else {
+                values[node.index].show();
             }
         }
-        printf("\n");
+
+        // for (int j=0; j<blocks.size(); j++) {
+        //     printf("<block #%u>\n", j);
+        //     const block_t& block = blocks[j];
+        //     for (int i=0; i<256; i++) {
+        //         const node_t& node = block.nodes[i];
+        //         if (node) {
+        //             if (node.is_internal) {
+        //                 printf("\t<node %-3u|%c block_index=%u>\n", i, i, node.index);
+        //             } else {
+        //                 printf("\t<node %-3u|%c value_index=%u>\n\t\t", i, i, node.index);
+        //                 values[node.index].show();
+        //             }
+        //         }
+        //     }
+        // }
+        // printf("\n");
     }
 
 };
@@ -206,11 +272,11 @@ struct Model {
 int main(int argc, char const *argv[]) {
     RadixTree<char[16], Model, uint32_t, offsetof(Model, name)> tree;
 
-    tree.show_blocks();
+    tree.show();
 
     tree.insert(Model(1, "un"));
     // {
-    //     tree.show_blocks();
+    //     tree.show();
     //     return 0;
     // }
     tree.insert(Model(2, "deux"));
@@ -224,9 +290,9 @@ int main(int argc, char const *argv[]) {
     tree.insert(Model(10, "dix"));
     tree.insert(Model(11, "onze"));
     tree.insert(Model(12, "douze"));
-    printf("\n\n\n");
+    // printf("\n\n\n");
 
-    tree.show_blocks();
+
 
     Model model;
     char key[16];
