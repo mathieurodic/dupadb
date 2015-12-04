@@ -4,7 +4,7 @@
 COMPILER="clang++"
 INCLUDE_FOLDER="src"
 LIBS=""
-NOWARNING_FLAGS="c++11-compat-deprecated-writable-strings invalid-offsetof"
+NOWARNING_FLAGS="c++11-compat-deprecated-writable-strings invalid-offsetof char-subscripts"
 OPTIMISATION_LEVEL="3"
 
 # build command
