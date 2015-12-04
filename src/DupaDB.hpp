@@ -7,31 +7,56 @@
 
 
 struct version_t {
-    uint8_t main;
-    uint8_t revision;
-    uint16_t release;
-    inline const bool operator ==(const version_t& other) {
+    union {
+        struct {
+            uint8_t main;
+            uint8_t revision;
+            uint8_t release;
+            uint8_t __filler;
+        };
+        uint8_t __data[4];
+    };
+    inline const bool operator == (const version_t& other) {
         return !memcmp(this, &other, sizeof(version_t));
+    }
+    inline const bool operator >= (const version_t& other) const {
+        for (int i=0; i<3; i++) {
+            if (__data[i] > other.__data[i]) {
+                return true;
+            } else if (__data[i] < other.__data[i]) {
+                return false;
+            }
+        }
+        return true;
     }
 };
 static const version_t dupa_version = {
     .main = 0,
     .revision = 1,
     .release = 1,
+    .__filler = 0,
 };
+
 
 struct DupaHeader {
-    char type[4];
+    char type[8];
     version_t version;
+    char version_name[52];
 
-    inline void set_dupa() {
-        memcpy(type, "DUPA", 4);
+    inline void set() {
+        strncpy(type, "DUPADB", sizeof(type));
         version = dupa_version;
+        strncpy(version_name, "Sunny Afternoon", sizeof(version_name));
     }
-    inline const bool check_dupa() {
-        return !memcmp(type, "DUPA", 4) && (version == dupa_version);
+    inline const bool check() const {
+        return
+            !strcmp(type, "DUPADB") &&
+            version >= dupa_version;
     }
 };
+
+
+#include "File.hpp"
 
 
 #endif // __INCLUDED__DupaDB_hpp__

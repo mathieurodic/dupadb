@@ -1,38 +1,10 @@
-#include "File.hpp"
-
-
-struct DupaHeader {
-    char type[8];
-    struct {
-        uint8_t main;
-        uint8_t revision;
-        uint8_t release;
-        uint8_t __filler;
-    } version;
-    char version_name[52];
-
-    inline void set() {
-        strncpy(type, "DUPADB", sizeof(type));
-        strncpy(version_name, "Sunny Afternoon", sizeof(version_name));
-        version = {
-            .main = 0,
-            .revision = 1,
-            .release = 1,
-        };
-    }
-    inline const bool check() const {
-        return
-            !strcmp(type, "DUPADB") &&
-            !strcmp(version_name, "Sunny Afternoon") &&
-            version.main == 0 &&
-            version.revision == 1 &&
-            version.release == 1;
-    }
-};
+#include "DupaDB.hpp"
+#include "util/logging.hpp"
 
 
 template <typename size_t>
 struct CounterHeader {
+
     DupaHeader dupa;
     char reserved[8];
     size_t intsize;
@@ -51,7 +23,6 @@ struct CounterHeader {
             intsize == sizeof(size_t);
     }
 };
-
 
 
 int main(int argc, char const *argv[]) {

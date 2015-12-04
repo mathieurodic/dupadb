@@ -162,6 +162,7 @@ struct FilePager : FileHandler {
         if (munmap(header, sizeof(header_t)) == -1) {
             fatal("error while unmapping header for: `%s`", _path);
         }
+        debug("close file `%s`", _path);
     }
 
     // access pages
