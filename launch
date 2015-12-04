@@ -31,6 +31,7 @@ case $1 in
     run)
         ./compile $FILE_PATH -o builds/$FILE_PATH_WITHOUT_EXTENSION && \
             $FILE_EXEC
+        echo
         EXIT_CODE=$?;;
     dbg)
         ./compile -g $FILE_PATH -o builds/$FILE_PATH_WITHOUT_EXTENSION && \

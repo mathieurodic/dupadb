@@ -4,6 +4,8 @@
 
 int main(int argc, char const *argv[]) {
     start();
-    BTree tree("test");
+
+    BTree<int, 4> bt("storage/test_btree");
+
     finish(return);
 }
