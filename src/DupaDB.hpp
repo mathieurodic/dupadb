@@ -57,6 +57,7 @@ struct DupaHeader {
 
 
 #include "FilePager.hpp"
+#include "Counter.hpp"
 
 
 #endif // __INCLUDED__DupaDB_hpp__

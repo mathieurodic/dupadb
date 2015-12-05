@@ -166,7 +166,7 @@ struct FilePager : FileHandler {
     }
 
     // access pages
-    inline page_t& get(size_t page_index) {
+    inline page_t& get_page(size_t page_index) {
         // try to retrieve from cache
         auto it = _page_maps.find(page_index);
         if (it != _page_maps.end()) {
@@ -191,13 +191,13 @@ struct FilePager : FileHandler {
         // set the memory at this position
         _total_page_uses++;
         _page_uses[page_position]++;
+        __page_maps[page_position].set((page_index + 1) * page_size, page_size);
         _page_maps.insert(
             std::pair<size_t, FileHandlerMap<page_t>&>(
                 page_index,
                 __page_maps[page_position]
             )
         );
-        __page_maps[page_position].set((page_index + 1) * page_size, page_size);
         return * __page_maps[page_position].data();
     }
 
