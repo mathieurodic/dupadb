@@ -7,26 +7,41 @@
 
 
 template <typename size_t>
-struct CounterHeader : DupaHeader {
-    char subtype[4];
-    uint32_t intsize;
+struct CounterHeader {
+
+    DupaHeader dupa;
+    char reserved[8];
+    size_t intsize;
     size_t counter;
 
     inline void set() {
-        set_dupa();
-        memcpy(subtype, "CNTR", 4);
+        dupa.set();
+        memcpy(reserved, "FIXDCNTR", 8);
         intsize = sizeof(size_t);
         counter = 0;
     }
     inline const bool check() {
         return
-            check_dupa() &&
-            !memcmp(subtype, "CNTR", 4) &&
-            (intsize == sizeof(size_t));
+            dupa.check() &&
+            !memcmp(reserved, "FIXDCNTR", 8) &&
+            intsize == sizeof(size_t);
     }
-
 };
 
+
+template<
+    typename value_t,
+    size_t page_size
+>
+struct Counter : FilePager<
+    CounterHeader<uint32_t>, uint32_t,
+    page_size, char[0], value_t,
+    256
+>
+
+
+
+/*
 template <typename value_t, typename size_t, bool must_copy_id=false, size_t id_offset=0, size_t reserve_size=1048576, size_t block_size=4096, size_t block_cache_maxcount=16>
 struct Counter : FileMap<CounterHeader<size_t>, value_t, size_t, reserve_size, block_size, block_cache_maxcount> {
 
@@ -52,6 +67,6 @@ struct Counter : FileMap<CounterHeader<size_t>, value_t, size_t, reserve_size, b
     }
 
 };
-
+*/
 
 #endif // __INCLUDED__Counter_hpp__

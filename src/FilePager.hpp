@@ -108,7 +108,7 @@ struct FileHandlerMap {
 template <
     typename header_t, typename size_t,
     size_t page_size, typename page_header_t, typename page_value_t,
-    size_t pages_max_size
+    size_t pages_max_count
 >
 struct FilePager : FileHandler {
 
@@ -123,9 +123,9 @@ struct FilePager : FileHandler {
     header_t* header;
 
     // other mapped pages
-    FileHandlerMap<page_t> __page_maps[pages_max_size];
+    FileHandlerMap<page_t> __page_maps[pages_max_count];
     size_t __page_maps_size;
-    size_t _page_uses[pages_max_size];
+    size_t _page_uses[pages_max_count];
     size_t _total_page_uses;
     std::unordered_map<size_t, FileHandlerMap<page_t>&> _page_maps;
 
@@ -141,7 +141,7 @@ struct FilePager : FileHandler {
         _total_page_uses = 0;
         // set file handler
         header_map.set_handler(*this);
-        for (int i=0; i<pages_max_size; i++) {
+        for (int i=0; i<pages_max_count; i++) {
             __page_maps[i].set_handler(*this);
         }
         // map header
@@ -174,12 +174,12 @@ struct FilePager : FileHandler {
         }
         // find an unoccupied space
         size_t page_position;
-        if (__page_maps_size < pages_max_size) {
+        if (__page_maps_size < pages_max_count) {
             page_position = __page_maps_size++;
         } else {
             page_position = 0;
             size_t page_position_uses = _page_uses[0];
-            for (size_t i=1; i<pages_max_size; i++) {
+            for (size_t i=1; i<pages_max_count; i++) {
                 if (_page_uses[i] < page_position_uses) {
                     page_position_uses = _page_uses[i];
                     page_position = i;
