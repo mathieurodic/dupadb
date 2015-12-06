@@ -13,10 +13,10 @@ int main(int argc, char const *argv[]) {
         cntr.append(v);
     }
 
-    Counter<char[16], uint32_t, 4096, 256> counter("storage/test_1b", 1024*1024);
+    Counter<char[16], uint64_t, 4096, 256> counter("storage/test_1b", 16*1024*1024);
     // uint32_t n = 1024*1023;
-    uint32_t n = 64*1024*1024;
-    notice("insert %u things", n);
+    uint32_t n = 256*1024*1024;
+    message("insert %u things", n);
     char value[16];
     strncpy(value, ":-)\n", 16);
     for (uint32_t i=0; i<n; i++) {

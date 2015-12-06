@@ -14,14 +14,15 @@
 #include <unistd.h>
 
 
+template <typename size_t>
 struct FileHandler {
 
     const char* _path;
-    int _handle;
-    int _size;
-    int _reserve_size;
+    size_t _handle;
+    size_t _size;
+    size_t _reserve_size;
 
-    inline FileHandler(const char* path, const int reserve_size) {
+    inline FileHandler(const char* path, const size_t reserve_size) {
         _path = path;
         _handle = open(_path, O_RDWR | O_CREAT, 0666);
         _reserve_size = reserve_size;
@@ -42,10 +43,10 @@ struct FileHandler {
         }
     }
 
-    inline const int& size() {
+    inline const size_t& size() {
         return _size;
     }
-    inline const int& reserve(const int max_size) {
+    inline const size_t& reserve(const size_t max_size) {
         if (_size >= max_size) {
             return _size;
         }
@@ -62,10 +63,10 @@ struct FileHandler {
 
 };
 
-template <typename mapped_t>
+template <typename size_t, typename mapped_t>
 struct FileHandlerMap {
 
-    FileHandler* _file_handler;
+    FileHandler<size_t>* _file_handler;
     mapped_t* _data;
     size_t _size;
     inline FileHandlerMap() : _file_handler(NULL), _data((mapped_t*) -1), _size(0) {}
@@ -73,20 +74,22 @@ struct FileHandlerMap {
         unset();
     }
 
-    inline void set_handler(FileHandler& file_handler) {
+    inline void set_handler(FileHandler<size_t>& file_handler) {
         _file_handler = &file_handler;
     }
 
     inline const void unset() {
         if (_size) {
-            munmap(_data, _size);
+            if (munmap(_data, _size) == -1) {
+                fatal("bleuargh");
+            }
             _size = 0;
         }
     }
-    inline const bool set(const int offset, const int size) {
+    inline const bool set(const size_t offset, const size_t size) {
         unset();
-        if (size + offset > _file_handler->size()) {
-            int new_size = size + offset;
+        size_t new_size = size + offset;
+        if (new_size > _file_handler->size()) {
             if (_file_handler->reserve(new_size) < new_size) {
                 return false;
             }
@@ -96,6 +99,7 @@ struct FileHandlerMap {
             _size = size;
             return true;
         }
+        fatal("bleuargh");
         return false;
     }
 
@@ -107,46 +111,40 @@ struct FileHandlerMap {
 
 template <
     typename header_t, typename size_t,
-    size_t page_size, typename page_header_t, typename page_value_t,
+    size_t page_size, typename page_t,
     size_t pages_max_count
 >
-struct FilePager : FileHandler {
-
-    // type definition for page
-    struct page_t {
-        page_header_t header;
-        page_value_t values[(page_size - sizeof(page_header_t)) / sizeof(page_value_t)];
-    };
+struct FilePager : FileHandler<size_t> {
 
     // mapped header
-    FileHandlerMap<header_t> header_map;
+    FileHandlerMap<size_t, header_t> header_map;
     header_t* header;
 
     // other mapped pages
-    FileHandlerMap<page_t> __page_maps[pages_max_count];
+    FileHandlerMap<size_t, page_t> __page_maps[pages_max_count];
     size_t __page_maps_size;
     size_t _page_uses[pages_max_count];
     size_t _total_page_uses;
-    std::unordered_map<size_t, FileHandlerMap<page_t>&> _page_maps;
+    std::unordered_map<size_t, FileHandlerMap<size_t, page_t>&> _page_maps;
 
     // constructor
-    inline FilePager(const char* path, int reserve_size) : FileHandler(path, reserve_size) {
+    inline FilePager(const char* path, size_t reserve_size) : FileHandler<size_t>(path, reserve_size) {
         if (reserve_size < page_size) {
-            fatal("reserve_size should be greater than page_size; however, %u < %u", reserve_size, page_size);
+            fatal("reserve_size should be greater than page_size; however, %lu < %lu", (uint64_t)reserve_size, (uint64_t)page_size);
         }
-        auto is_new = (size() == 0);
+        auto is_new = (this->size() == 0);
         // initialize pages
         __page_maps_size = 0;
         memset(_page_uses, 0, sizeof(_page_uses));
         _total_page_uses = 0;
         // set file handler
         header_map.set_handler(*this);
-        for (int i=0; i<pages_max_count; i++) {
+        for (size_t i=0; i<pages_max_count; i++) {
             __page_maps[i].set_handler(*this);
         }
         // map header
         if (!header_map.set(0, sizeof(header_t))) {
-            fatal("could not map header for: `%s`", _path);
+            fatal("could not map header for: `%s`", this->_path);
         }
         header = header_map.data();
         // initialize header if necessary
@@ -155,14 +153,14 @@ struct FilePager : FileHandler {
         }
         // check header
         if (!header->check()) {
-            fatal("invalid header for: `%s`", _path);
+            fatal("invalid header for: `%s`", this->_path);
         }
     }
     inline ~FilePager() {
         if (munmap(header, sizeof(header_t)) == -1) {
-            fatal("error while unmapping header for: `%s`", _path);
+            fatal("error while unmapping header for: `%s`", this->_path);
         }
-        debug("close file `%s`", _path);
+        debug("close file `%s`", this->_path);
     }
 
     // access pages
@@ -193,7 +191,7 @@ struct FilePager : FileHandler {
         _page_uses[page_position]++;
         __page_maps[page_position].set((page_index + 1) * page_size, page_size);
         _page_maps.insert(
-            std::pair<size_t, FileHandlerMap<page_t>&>(
+            std::pair<size_t, FileHandlerMap<size_t, page_t>&>(
                 page_index,
                 __page_maps[page_position]
             )

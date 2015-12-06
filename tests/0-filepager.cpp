@@ -3,7 +3,7 @@
 
 
 template <typename size_t>
-struct CounterHeader {
+struct TestHeader {
 
     DupaHeader dupa;
     char reserved[8];
@@ -29,16 +29,15 @@ int main(int argc, char const *argv[]) {
     start();
 
     FilePager<
-        CounterHeader<uint32_t>, uint32_t,
-        4096, char[32], char[16],
+        TestHeader<uint32_t>, uint32_t,
+        4096, char[128][32],
         256
     > pager("storage/test_0", 1024*1024);
 
-    for (int i=0; i<1024; i++) {
-        auto& page = pager.get(i);
-        sprintf(page.header, "%-31d", i);
-        for (int j=0; j<253; j++) {
-            sprintf(page.values[j], "%015d", j);
+    for (int i=0; i<256*1024; i++) {
+        auto& page = pager.get_page(i);
+        for (int j=0; j<128; j++) {
+            sprintf(page[j], "%015d\n", j);
         }
     }
 
