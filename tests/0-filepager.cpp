@@ -34,7 +34,8 @@ int main(int argc, char const *argv[]) {
         256
     > pager("storage/test_0", 1024*1024);
 
-    for (int i=0; i<256*1024; i++) {
+    // for (int i=0; i<256*1024; i++) {
+    for (int i=0; i<1024; i++) {
         auto& page = pager.get_page(i);
         for (int j=0; j<128; j++) {
             sprintf(page[j], "%015d\n", j);

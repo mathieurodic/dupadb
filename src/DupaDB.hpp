@@ -32,7 +32,7 @@ struct version_t {
 };
 static const version_t dupa_version = {
     .main = 0,
-    .revision = 1,
+    .revision = 0,
     .release = 1,
     .__filler = 0,
 };

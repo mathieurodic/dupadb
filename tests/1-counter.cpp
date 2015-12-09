@@ -14,8 +14,8 @@ int main(int argc, char const *argv[]) {
     }
 
     Counter<char[16], uint64_t, 4096, 256> counter("storage/test_1b", 16*1024*1024);
-    // uint32_t n = 1024*1023;
-    uint32_t n = 256*1024*1024;
+    uint32_t n = 1024*1023;
+    // uint32_t n = 256*1024*1024;
     message("insert %u things", n);
     char value[16];
     strncpy(value, ":-)\n", 16);

@@ -10,20 +10,20 @@ template <typename size_t>
 struct CounterHeader {
 
     DupaHeader dupa;
-    char reserved[8];
+    char subtype[8];
     size_t intsize;
     size_t counter;
 
     inline void set() {
         dupa.set();
-        memcpy(reserved, "FIXDCNTR", 8);
+        memcpy(subtype, "FIXDCNTR", 8);
         intsize = sizeof(size_t);
         counter = 0;
     }
     inline const bool check() {
         return
             dupa.check() &&
-            !memcmp(reserved, "FIXDCNTR", 8) &&
+            !memcmp(subtype, "FIXDCNTR", 8) &&
             intsize == sizeof(size_t);
     }
 };
