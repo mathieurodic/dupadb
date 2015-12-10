@@ -5,6 +5,7 @@
 #include "DupaDB.hpp"
 #include "FilePager.hpp"
 
+#include <vector>
 
 // File header for B-trees
 
@@ -102,7 +103,7 @@ struct BTreePage {
 };
 
 template <typename size_t, typename key_t, size_t page_size>
-const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 5;
+const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 3;
 // const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
 
 
@@ -148,10 +149,12 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         const key_t& split_key = page.keys[split_left];
         //
         // show();
-        // error("SPLITTING NOW: %u", page.header.index);
         //
+        // warning("SPLITTING NOW: %u", page.header.index);
+        // show(page.header.parent_index);
         if (page.header.is_leaf) {
             if (page.header.is_root) {
+                // notice("A")
                 // first new child
                 page_t& child1 = new_page(page.header.index);
                 memcpy(child1.keys, page.keys, split_left * sizeof(key_t));
@@ -169,6 +172,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                 page.values[0] = child1.header.index;
                 page.values[1] = child2.header.index;
             } else {
+                // notice("B")
                 // original page
                 page.header.keys_count = split_left;
                 // new sibling
@@ -182,6 +186,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
             }
         } else {
             if (page.header.is_root) {
+                // notice("C")
                 // first new child
                 page_t& child1 = new_page(page.header.index);
                 child1.header.is_leaf = false;
@@ -200,6 +205,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                 page.values[0] = child1.header.index;
                 page.values[1] = child2.header.index;
             } else {
+                // notice("D")
                 // new sibling
                 page_t& sibling = new_page(page.header.parent_index);
                 sibling.header.is_leaf = false;
@@ -215,9 +221,11 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         }
         // show();
         // warning("READY TO INSERT?")
-        if (!check()) {
-            fatal("This B-tree is not ordered anymore!");
-        }
+        // if (!check()) {
+        //     error(" ");
+        //     show(page.header.parent_index);
+        //     fatal("This B-tree is not ordered anymore!");
+        // }
     }
 
     inline const bool insert(page_t& page, const key_t& key, const size_t value) {
@@ -243,6 +251,98 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         return insert(page, key, value);
     }
 
+    struct cursor_t {
+        BTree<size_t, key_t, reserve_size, page_size, pages_max_count>* _btree;
+        //
+        std::vector<page_t*> _pages;
+        std::vector<size_t> _path;
+        //
+        size_t _index;
+        page_t* _page;
+        key_t* _key;
+        size_t* _value;
+
+        inline cursor_t() : _btree(NULL) {}
+        inline cursor_t(BTree<size_t, key_t, reserve_size, page_size, pages_max_count>* btree) : _btree(btree) {
+            size_t page_index = 0;
+            while (true) {
+                _page = & _btree->get_page(page_index);
+                if (_page->header.keys_count == 0) {
+                    _page = NULL;
+                    return;
+                }
+                _pages.push_back(_page);
+                _path.push_back(0);
+                if (_page->header.is_leaf) {
+                    _key = _page->keys;
+                    _value = _page->values;
+                    _index = 0;
+                    return;
+                }
+                page_index = _page->values[_index];
+            }
+        }
+
+        inline key_t& key() {
+            return *_key;
+        }
+        inline size_t& value() {
+            return *_value;
+        }
+
+        inline void show_path() {
+            for (int i=0, n=_path.size(); i<n; i++) {
+                notice("%u / %p / %u", _path[i], _pages[i], _pages[i]->header.index);
+            }
+            notice("%u", _index);
+        }
+
+        inline const bool operator != (const cursor_t& other) {
+            return _path.size() != other._path.size();
+            // return _path.size() != other._path.size()
+            //     || memcmp(_path.data(), other._path.data(), _path.size() * sizeof(size_t));
+        }
+        inline void operator ++ () {
+            while (true) {
+                if (++_index < _page->header.keys_count) {
+                    ++_key;
+                    ++_value;
+                    return;
+                }
+                _index = _path.back() + 1;
+                _path.pop_back();
+                _pages.pop_back();
+                _page = _pages.back();
+                do {
+                    if (_index <= _page->header.keys_count) {
+                        _page = & _btree->get_page(_page->values[_index]);
+                        _pages.push_back(_page);
+                        _path.push_back(_index);
+                        _index = 0;
+                    } else if (_page->header.is_root) {
+                        _path.clear();
+                        _pages.clear();
+                        return;
+                    } else {
+                        _index = _path.back() + 1;
+                        _path.pop_back();
+                        _pages.pop_back();
+                        _page = _pages.back();
+                    }
+                } while (!_page->header.is_leaf);
+                _key = & _page->keys[_index];
+                _value = & _page->values[_index];
+                return;
+            }
+        }
+    };
+    inline cursor_t begin() {
+        return cursor_t(this);
+    }
+    static inline cursor_t end() {
+        return cursor_t();
+    }
+
     inline bool check() {
         key_t nullkey;
         return check(0, nullkey);
@@ -265,22 +365,30 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         }
         return true;
     }
+
     inline void show(const size_t page_index=0, const size_t depth=0) {
         if (page_index == 0) {
             debug("BTREE");
         }
         const page_t& page = this->get_page(page_index);
-        std::string prefix(4 * (depth + 1), '.');
+        std::string wrong_prefix(4 * (depth + 1), '|');
+        std::string right_prefix(4 * (depth + 1), '.');
+        key_t key;
         if (page.header.is_leaf) {
             for (uint32_t i=0, n=page.header.keys_count; i<n; i++) {
-                debug("%s LEAF [%02u->%02u] `%s` -> %u", prefix.c_str(), page.header.parent_index, page_index, page.keys[i]._data, page.values[i]);
+                const char* prefix = ((key > page.keys[i]) ? wrong_prefix : right_prefix).c_str();
+                key = page.keys[i];
+                debug("%s LEAF %-3u (%s)", prefix, page.values[i], page.keys[i]._data);
             }
         } else {
             for (uint32_t i=0, n=page.header.keys_count; i<=n; i++) {
+                key = page.keys[i];
                 if (i == 0) {
-                    debug("%s [%02u->%02u] -> %u", prefix.c_str(), page.header.parent_index, page_index, page.values[i]);
+                    const char* prefix = right_prefix.c_str();
+                    debug("%s %u", prefix, page.values[i]);
                 } else {
-                    debug("%s [%02u->%02u] `%s` -> %u", prefix.c_str(), page.header.parent_index, page_index, page.keys[i - 1]._data, page.values[i]);
+                    const char* prefix = ((key > page.keys[i]) ? wrong_prefix : right_prefix).c_str();
+                    debug("%s %-3u (%s)", prefix, page.values[i], page.keys[i - 1]._data);
                 }
                 show(page.values[i], depth + 1);
             }

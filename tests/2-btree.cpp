@@ -40,6 +40,9 @@ struct str_t {
         strncpy(_data, source.c_str(), size);
         return *this;
     }
+    inline const char* data() const {
+        return _data;
+    }
 };
 
 
@@ -47,9 +50,9 @@ int main(int argc, char const *argv[]) {
     start();
     str_t<> key;
     BTree<uint32_t, str_t<>> btree("storage/test_2");
-    warning("%u KEYS PER PAGE", btree.max_keys_count);
+    message("%u KEYS PER PAGE", btree.max_keys_count);
 
-    for (int i=0; i<256; i++) {
+    for (int i=0; i<282; i++) {
 
         uint16_t value = i;
         key = number2expression(value);
@@ -60,7 +63,13 @@ int main(int argc, char const *argv[]) {
         btree.insert(key, value);
     }
 
-    warning("...last, but not least...");
-    btree.show();
+    message("show");
+    // btree.show();
+    message("iterate");
+    uint64_t i = 0;
+    for (auto it=btree.begin(); it!=btree.end(); ++it) {
+        debug("%-6lu `%s` -> %u", i++, it.key().data(), it.value());
+    }
+    // btree.show();
     finish(return);
 }
