@@ -1,8 +1,10 @@
 #include "util/logging.hpp"
 #include "BTree.hpp"
 
+#include "generators.hpp"
 
-template<uint32_t size>
+
+template<uint32_t size=256>
 struct str_t {
     char _data[size];
     inline str_t() {
@@ -34,21 +36,31 @@ struct str_t {
         // notice("`%s` > `%s` : %s", _data, other._data, (memcmp(_data, other._data, size) > 0) ? "TRUE" : "FALSE");
         return (memcmp(_data, other._data, size) > 0);
     }
+    inline const str_t<size> operator = (const std::string source) {
+        strncpy(_data, source.c_str(), size);
+        return *this;
+    }
 };
 
 
 int main(int argc, char const *argv[]) {
     start();
-    str_t<16> key;
+    str_t<> key;
+    BTree<uint32_t, str_t<>> btree("storage/test_2");
+    warning("%u KEYS PER PAGE", btree.max_keys_count);
 
-    BTree<uint32_t, str_t<16>> btree("storage/test_2");
+    for (int i=0; i<256; i++) {
 
-    for (int i=0; i<210; i++) {
         uint16_t value = i;
-        snprintf(key._data, sizeof(key), "%x                  ", value);
+        key = number2expression(value);
+
+        // btree.show();
+        // message("INSERT: %s/%u", key._data, value);
+
         btree.insert(key, value);
     }
 
+    warning("...last, but not least...");
     btree.show();
     finish(return);
 }

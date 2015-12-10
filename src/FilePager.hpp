@@ -99,7 +99,7 @@ struct FileHandlerMap {
             _size = size;
             return true;
         }
-        fatal("bleuargh");
+        fatal("could not map %u bytes from %s@%u", size, _file_handler->_path, offset);
         return false;
     }
 

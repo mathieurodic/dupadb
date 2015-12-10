@@ -47,7 +47,8 @@ struct BTreePage {
     // header
     struct header_t {
         // flags
-        bool is_leaf;
+        bool is_leaf : sizeof(size_t) / 2;
+        bool is_root : sizeof(size_t) / 2;
         size_t index;
         size_t parent_index;
         size_t keys_count;
@@ -61,40 +62,48 @@ struct BTreePage {
         return header.keys_count >= max_keys_count;
     }
     inline const size_t find(const key_t& key) const {
-        for (int i=0; i<header.keys_count; i++) {
-            if (key > keys[i]) {
-                for (int j=i+1; j<header.keys_count; j++) {
-                    if (keys[j] > key) {
-                        return j;
-                    }
-                }
-                return header.keys_count;
+        if (key < keys[0]) {
+            return 0;
+        }
+        for (int i=1; i<header.keys_count; i++) {
+            if (key < keys[i]) {
+                return i;
             }
         }
-        return 0;
+        return header.keys_count;
     }
     // insertion
     inline const bool insert_at(const size_t index, const key_t& key, const size_t value) {
         size_t keys_count = header.keys_count++;
-        if (keys_count && index < keys_count) {
-            memmove(keys + index + 1, keys + index, sizeof(key_t) * (keys_count - index));
-            memmove(values + index + 1, values + index, sizeof(size_t) * (keys_count - index));
+        if (header.is_leaf) {
+            // shift to the right, to make some space
+            if (index < keys_count) {
+                memmove(keys + index + 1, keys + index, sizeof(key_t) * (keys_count - index));
+                memmove(values + index + 1, values + index, sizeof(size_t) * (keys_count - index));
+            }
+            // put the key/value pair at the right place
+            keys[index] = key;
+            values[index] = value;
+        } else {
+            // shift to the right, to make some space
+            if (index < keys_count) {
+                memmove(keys + index + 1, keys + index, sizeof(key_t) * (keys_count - index));
+                memmove(values + index + 2, values + index + 1, sizeof(size_t) * (keys_count - index));
+            }
+            // put the key/value pair at the right place
+            keys[index] = key;
+            values[index + 1] = value;
         }
-        keys[index] = key;
-        values[index] = value;
         return true;
     }
     inline const bool insert(const key_t& key, const size_t value) {
-        if (!header.is_leaf) {
-            return false;
-        }
-        const size_t index = find(key);
-        return insert_at(index, key, value);
+        return insert_at(find(key), key, value);
     }
 };
 
 template <typename size_t, typename key_t, size_t page_size>
-const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
+const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 5;
+// const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
 
 
 // The B-tree itself
@@ -116,7 +125,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         >(file_path, reserve_size)
     {
         if (this->header->must_initialize) {
-            this->new_page();
+            this->new_page().header.is_root = true;
         }
     }
 
@@ -125,6 +134,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         page_t& page = this->get_page(page_index = this->header->page_count++);
         page.header = {
             .is_leaf = true,
+            .is_root = false,
             .index = page_index,
             .parent_index = parent_index,
             .keys_count = 0
@@ -132,47 +142,130 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         return page;
     }
 
-    inline void split(page_t& page) {
-        static size_t split_index = max_keys_count / 2;
-        if (page.header.index == 0) {
-            // first child node
-            page_t& child1_page = new_page();
-            memcpy(child1_page.keys, page.keys, split_index * sizeof(key_t));
-            memcpy(child1_page.values, page.values, split_index * sizeof(size_t));
-            child1_page.header.keys_count = split_index;
-            // second child node
-            page_t& child2_page = new_page();
-            memcpy(child2_page.keys, page.keys + split_index, (max_keys_count - split_index) * sizeof(key_t));
-            memcpy(child2_page.values, page.values + split_index, (max_keys_count - split_index) * sizeof(size_t));
-            child2_page.header.keys_count = max_keys_count - split_index;
-            // root node
-            memcpy(page.keys, child1_page.keys + split_index - 1, sizeof(key_t));
-            page.values[0] = child1_page.header.index;
-            page.values[1] = child2_page.header.index;
-            page.header.keys_count = 1;
-            page.header.is_leaf = false;
+    inline void split(page_t& page, const size_t parent_index=0) {
+        static const size_t split_left = max_keys_count / 2;
+        static const size_t split_right = max_keys_count - split_left;
+        const key_t& split_key = page.keys[split_left];
+        //
+        // show();
+        // error("SPLITTING NOW: %u", page.header.index);
+        //
+        if (page.header.is_leaf) {
+            if (page.header.is_root) {
+                // first new child
+                page_t& child1 = new_page(page.header.index);
+                memcpy(child1.keys, page.keys, split_left * sizeof(key_t));
+                memcpy(child1.values, page.values, split_left * sizeof(size_t));
+                child1.header.keys_count = split_left;
+                // second new child
+                page_t& child2 = new_page(page.header.index);
+                memcpy(child2.keys, page.keys + split_left, split_right * sizeof(key_t));
+                memcpy(child2.values, page.values + split_left, split_right * sizeof(size_t));
+                child2.header.keys_count = split_right;
+                // original
+                page.header.keys_count = 1;
+                page.header.is_leaf = false;
+                page.keys[0] = split_key;
+                page.values[0] = child1.header.index;
+                page.values[1] = child2.header.index;
+            } else {
+                // original page
+                page.header.keys_count = split_left;
+                // new sibling
+                page_t& sibling = new_page(page.header.parent_index);
+                memcpy(sibling.keys, page.keys + split_left, split_right * sizeof(key_t));
+                memcpy(sibling.values, page.values + split_left, split_right * sizeof(size_t));
+                sibling.header.keys_count = split_right;
+                // parent
+                page_t& parent = this->get_page(parent_index);
+                parent.insert(split_key, sibling.header.index);
+            }
+        } else {
+            if (page.header.is_root) {
+                // first new child
+                page_t& child1 = new_page(page.header.index);
+                child1.header.is_leaf = false;
+                child1.header.keys_count = split_left;
+                memcpy(child1.keys, page.keys, split_left * sizeof(key_t));
+                memcpy(child1.values, page.values, (split_left + 1) * sizeof(key_t));
+                // second new child
+                page_t& child2 = new_page(page.header.index);
+                child2.header.is_leaf = false;
+                child2.header.keys_count = split_right - 1;
+                memcpy(child2.keys, page.keys + split_left + 1, (split_right - 1) * sizeof(key_t));
+                memcpy(child2.values, page.values + split_left + 1, split_right * sizeof(key_t));
+                // original
+                page.header.keys_count = 1;
+                page.keys[0] = split_key;
+                page.values[0] = child1.header.index;
+                page.values[1] = child2.header.index;
+            } else {
+                // new sibling
+                page_t& sibling = new_page(page.header.parent_index);
+                sibling.header.is_leaf = false;
+                sibling.header.keys_count = split_right - 1;
+                memcpy(sibling.keys, page.keys + split_left + 1, (split_right - 1) * sizeof(key_t));
+                memcpy(sibling.values, page.values + split_left + 1, split_right * sizeof(key_t));
+                // original
+                page.header.keys_count = split_left;
+                // parent
+                page_t& parent = this->get_page(parent_index);
+                parent.insert(split_key, sibling.header.index);
+            }
+        }
+        // show();
+        // warning("READY TO INSERT?")
+        if (!check()) {
+            fatal("This B-tree is not ordered anymore!");
         }
     }
-    inline bool insert(const key_t& key, size_t value) {
+
+    inline const bool insert(page_t& page, const key_t& key, const size_t value) {
+        return page.insert(key, value);
+    }
+    inline const bool insert(const key_t& key, const size_t value) {
+        size_t parent_index = 0;
         size_t page_index = 0;
         while (true) {
             page_t& page = this->get_page(page_index);
+            if (page.is_full()) {
+                split(page, parent_index);
+                parent_index = page_index = 0;
+                continue;
+            }
             if (page.header.is_leaf) {
                 break;
             }
+            parent_index = page_index;
             page_index = page.values[page.find(key)];
         }
         page_t& page = this->get_page(page_index);
-        if (page.is_full()) {
-            split(page);
-        }
-        if (page.insert(key, value)) {
-            return true;
-        }
-        return false;
+        return insert(page, key, value);
     }
 
-    inline void show(size_t page_index=0, size_t depth=0) {
+    inline bool check() {
+        key_t nullkey;
+        return check(0, nullkey);
+    }
+    inline bool check(const size_t page_index, key_t& key) {
+        const page_t& page = this->get_page(page_index);
+        if (page.header.is_leaf) {
+            for (uint32_t i=0, n=page.header.keys_count; i<n; i++) {
+                if (key > page.keys[i]) {
+                    return false;
+                }
+                key = page.keys[i];
+            }
+        } else {
+            for (uint32_t i=0, n=page.header.keys_count; i<=n; i++) {
+                if (!check(page.values[i], key) || page.values[i] == 0) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+    inline void show(const size_t page_index=0, const size_t depth=0) {
         if (page_index == 0) {
             debug("BTREE");
         }
@@ -180,14 +273,16 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         std::string prefix(4 * (depth + 1), '.');
         if (page.header.is_leaf) {
             for (uint32_t i=0, n=page.header.keys_count; i<n; i++) {
-                debug("%s [%02u-%04u] `%s` -> %u", prefix.c_str(), page_index, i, page.keys[i]._data, page.values[i]);
+                debug("%s LEAF [%02u->%02u] `%s` -> %u", prefix.c_str(), page.header.parent_index, page_index, page.keys[i]._data, page.values[i]);
             }
         } else {
             for (uint32_t i=0, n=page.header.keys_count; i<=n; i++) {
-                show(page.values[i], depth + 1);
-                if (i != n) {
-                    debug("%s [%02u-%04u] `%s`", prefix.c_str(), page_index, i, page.keys[i]._data);
+                if (i == 0) {
+                    debug("%s [%02u->%02u] -> %u", prefix.c_str(), page.header.parent_index, page_index, page.values[i]);
+                } else {
+                    debug("%s [%02u->%02u] `%s` -> %u", prefix.c_str(), page.header.parent_index, page_index, page.keys[i - 1]._data, page.values[i]);
                 }
+                show(page.values[i], depth + 1);
             }
         }
     }
