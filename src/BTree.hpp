@@ -75,7 +75,7 @@ struct BTreePage {
     }
     // insertion
     inline const bool insert_at(const size_t index, const key_t& key, const size_t value) {
-        size_t keys_count = header.keys_count++;
+        size_t keys_count = ++header.keys_count;
         if (header.is_leaf) {
             // shift to the right, to make some space
             if (index < keys_count) {
@@ -103,8 +103,8 @@ struct BTreePage {
 };
 
 template <typename size_t, typename key_t, size_t page_size>
-const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 3;
-// const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
+// const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 3;
+const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
 
 
 // The B-tree itself
@@ -154,7 +154,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         // show(page.header.parent_index);
         if (page.header.is_leaf) {
             if (page.header.is_root) {
-                // notice("A")
+                notice("SPLIT %u: is_leaf && is_root", page.header.index);
                 // first new child
                 page_t& child1 = new_page(page.header.index);
                 memcpy(child1.keys, page.keys, split_left * sizeof(key_t));
@@ -172,7 +172,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                 page.values[0] = child1.header.index;
                 page.values[1] = child2.header.index;
             } else {
-                // notice("B")
+                notice("SPLIT %u: is_leaf && !is_root", page.header.index);
                 // original page
                 page.header.keys_count = split_left;
                 // new sibling
@@ -186,7 +186,6 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
             }
         } else {
             if (page.header.is_root) {
-                // notice("C")
                 // first new child
                 page_t& child1 = new_page(page.header.index);
                 child1.header.is_leaf = false;
@@ -204,8 +203,9 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                 page.keys[0] = split_key;
                 page.values[0] = child1.header.index;
                 page.values[1] = child2.header.index;
+                notice("SPLIT %u: !is_leaf / is_root", page.header.index);
             } else {
-                // notice("D")
+                notice("SPLIT %u: !is_leaf / !is_root", page.header.index);
                 // new sibling
                 page_t& sibling = new_page(page.header.parent_index);
                 sibling.header.is_leaf = false;
@@ -265,6 +265,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         inline cursor_t() : _btree(NULL) {}
         inline cursor_t(BTree<size_t, key_t, reserve_size, page_size, pages_max_count>* btree) : _btree(btree) {
             size_t page_index = 0;
+            _index = 0;
             while (true) {
                 _page = & _btree->get_page(page_index);
                 if (_page->header.keys_count == 0) {
@@ -291,10 +292,15 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         }
 
         inline void show_path() {
+            std::string result;
+            char buffer[256];
             for (int i=0, n=_path.size(); i<n; i++) {
-                notice("%u / %p / %u", _path[i], _pages[i], _pages[i]->header.index);
+                snprintf(buffer, sizeof(buffer), "(%u-%u) ", _path[i], _pages[i]->header.index);
+                result += buffer;
             }
-            notice("%u", _index);
+            snprintf(buffer, sizeof(buffer), "%u", _index);
+            result += buffer;
+            notice("%s", result.c_str());
         }
 
         inline const bool operator != (const cursor_t& other) {
@@ -303,6 +309,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
             //     || memcmp(_path.data(), other._path.data(), _path.size() * sizeof(size_t));
         }
         inline void operator ++ () {
+            show_path();
             while (true) {
                 if (++_index < _page->header.keys_count) {
                     ++_key;
@@ -329,6 +336,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                         _pages.pop_back();
                         _page = _pages.back();
                     }
+                    show_path();
                 } while (!_page->header.is_leaf);
                 _key = & _page->keys[_index];
                 _value = & _page->values[_index];
@@ -336,6 +344,9 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
             }
         }
     };
+    inline cursor_t find(const key_t& key) {
+        return cursor_t(this);
+    }
     inline cursor_t begin() {
         return cursor_t(this);
     }
@@ -368,7 +379,8 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
 
     inline void show(const size_t page_index=0, const size_t depth=0) {
         if (page_index == 0) {
-            debug("BTREE");
+            printf("BTREE\n");
+            // debug("BTREE");
         }
         const page_t& page = this->get_page(page_index);
         std::string wrong_prefix(4 * (depth + 1), '|');
@@ -378,17 +390,20 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
             for (uint32_t i=0, n=page.header.keys_count; i<n; i++) {
                 const char* prefix = ((key > page.keys[i]) ? wrong_prefix : right_prefix).c_str();
                 key = page.keys[i];
-                debug("%s LEAF %-3u (%s)", prefix, page.values[i], page.keys[i]._data);
+                printf("%s LEAF %-3u (%s)\n", prefix, page.values[i], page.keys[i]._data);
+                // debug("%s LEAF %-3u (%s)", prefix, page.values[i], page.keys[i]._data);
             }
         } else {
             for (uint32_t i=0, n=page.header.keys_count; i<=n; i++) {
                 key = page.keys[i];
                 if (i == 0) {
                     const char* prefix = right_prefix.c_str();
-                    debug("%s %u", prefix, page.values[i]);
+                    printf("%s %u\n", prefix, page.values[i]);
+                    // debug("%s %u", prefix, page.values[i]);
                 } else {
                     const char* prefix = ((key > page.keys[i]) ? wrong_prefix : right_prefix).c_str();
-                    debug("%s %-3u (%s)", prefix, page.values[i], page.keys[i - 1]._data);
+                    printf("%s %-3u (%s)\n", prefix, page.values[i], page.keys[i - 1]._data);
+                    // debug("%s %-3u (%s)", prefix, page.values[i], page.keys[i - 1]._data);
                 }
                 show(page.values[i], depth + 1);
             }
