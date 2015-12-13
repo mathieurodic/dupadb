@@ -3,6 +3,8 @@
 
 #include "generators.hpp"
 
+#include <map>
+
 
 template<uint32_t size=256>
 struct str_t {
@@ -71,6 +73,7 @@ int main(int argc, char const *argv[]) {
     BTree<uint32_t, str_t<>> btree("storage/test_2");
     message("%u KEYS PER PAGE", btree.max_keys_count);
 
+    std::map<str_t<>, uint32_t> key2value;
     for (uint64_t i=0; i<500; i++) {
 
         uint16_t value = i;
@@ -82,33 +85,13 @@ int main(int argc, char const *argv[]) {
         // btree.show();
         message("...%lu...", i);
         btree.insert(key, value);
-        btree.show();
+        key2value[key] = value;
+        // btree.show();
 
-        bool found_error = false;
-        if (i<10)continue;
-        str_t<> previous_key;
-        uint64_t count = 0;
-        previous_key.clear();
-        for (auto it=btree.begin(); it!=btree.end(); ++it) {
-            debug("%-6lu `%s` -> %u", count, it.key().data(), it.value());
-            count++;
-            if (it.key() != number2expression(it.value())) {
-                found_error = true;
-                error("VALUE ERROR: `%s` != %u", it.key()._data, it.value());
-            }
-            if (previous_key >= it.key()) {
-                found_error = true;
-                error("ORDER ERROR: %s >= %s", previous_key._data, it.key()._data);
-            }
-            previous_key = it.key();
-        }
-        if (count != i + 1) {
-            found_error = true;
-            error("COUNT ERROR: %lu != %lu", count, i+1);
-        }
-        if (found_error) {
-            printf("\n\n");
-            btree.show();
+        // if (i<10)continue;
+        if (!btree.show_check(key2value)) {
+            // btree.show();
+            btree.show_pages();
             finish(return);
         }
     }

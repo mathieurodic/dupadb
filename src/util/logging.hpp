@@ -49,7 +49,7 @@ inline void log_reset_time() {
     if (_log_t1) { \
         fprintf(LOG_OUTPUT, "dt = " STYLE_BOLD "%013.6f", _log_T - _log_t1); \
     } \
-    fprintf(LOG_OUTPUT, "\n" COLOR TYPE " "); \
+    fprintf(LOG_OUTPUT, STYLE_NORMAL "\n" COLOR TYPE " "); \
     fprintf(LOG_OUTPUT, STYLE_NORMAL COLOR); \
     for (int i=0, n=12-strlen(TYPE); i<n; i++) { \
         fprintf(LOG_OUTPUT, "-"); \

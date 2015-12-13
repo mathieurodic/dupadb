@@ -5,6 +5,7 @@
 #include "util/logging.hpp"
 
 #include <unordered_map>
+#include <vector>
 
 #include <stdlib.h>
 
@@ -51,12 +52,8 @@ struct FileHandler {
             return _size;
         }
         _size = max_size + (_reserve_size - max_size % _reserve_size);
-        if (lseek(_handle, _size - 1, SEEK_SET) == -1) {
-            fatal("error while seeking file: `%s`", _path);
-        }
-        static const char zero = '\0';
-        if (write(_handle, &zero, 1) == 0) {
-            fatal("error while resizing file: `%s`", _path);
+        if (ftruncate(_handle, _size) == -1) {
+            fatal("error while resizing file: `%s` (%s)", _path, strerror(errno));
         }
         return _size;
     }
@@ -111,10 +108,17 @@ struct FileHandlerMap {
 
 template <
     typename header_t, typename size_t,
-    size_t page_size, typename page_t,
+    size_t page_size, typename _page_t,
     size_t pages_max_count
 >
 struct FilePager : FileHandler<size_t> {
+
+    // extend page...
+    struct page_t : _page_t {
+        inline void flush() {
+            msync(this, sizeof(this), MS_SYNC);
+        }
+    };
 
     // mapped header
     FileHandlerMap<size_t, header_t> header_map;
@@ -164,7 +168,19 @@ struct FilePager : FileHandler<size_t> {
     }
 
     // access pages
+    std::unordered_map<size_t, page_t*> pages;
     inline page_t& get_page(size_t page_index) {
+        auto it = pages.find(page_index);
+        if (it != pages.end()) {
+            return * it->second;
+        }
+        page_t* page = (page_t*) malloc(page_size);
+        memset(page, 0, page_size);
+        pages.insert(std::pair<size_t, page_t*>(page_index, page));
+        return * page;
+
+
+        /*
         // try to retrieve from cache
         auto it = _page_maps.find(page_index);
         if (it != _page_maps.end()) {
@@ -197,6 +213,7 @@ struct FilePager : FileHandler<size_t> {
             )
         );
         return * __page_maps[page_position].data();
+        */
     }
 
 };
