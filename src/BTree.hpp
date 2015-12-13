@@ -116,7 +116,7 @@ struct BTreePage {
 };
 
 template <typename size_t, typename key_t, size_t page_size>
-const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 3;
+const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 9;
 // const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
 
 
@@ -160,11 +160,6 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         static const size_t split_left = max_keys_count / 2;
         static const size_t split_right = max_keys_count - split_left;
         const key_t& split_key = page.keys[split_left];
-        //
-        // show();
-        //
-        warning("SPLITTING NOW: %u", page.header.index);
-        // show(page.header.parent_index);
         if (page.header.is_leaf) {
             if (page.header.is_root) {
                 // first new child
@@ -228,13 +223,6 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                 parent.insert(split_key, sibling.header.index);
             }
         }
-        // show();
-        // notice("?")
-        // if (!check()) {
-        //     error(" ");
-        //     show(page.header.parent_index);
-        //     fatal("This B-tree is not ordered anymore!");
-        // }
     }
 
     inline const bool insert(page_t& page, const key_t& key, const size_t value) {
@@ -323,7 +311,6 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
             return (_page_index != other._page_index) || (_index != other._index);
         }
         inline void operator ++ () {
-            // message("%u / %u (%s)", _index, _page->header.keys_count, _page->header.is_leaf ? "L" : "I");
             while (true) {
                 page_t* page = & _btree->get_page(_page_index);
                 if (++_index < page->header.keys_count) {
@@ -332,12 +319,10 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                     return;
                 }
                 while (true) {
-                    show_path();
                     size_t max_index = page->header.keys_count;
                     if (!page->header.is_leaf) {
                         ++max_index;
                     }
-                    message("%u/%u [%u]", _index, max_index, _page_index)
                     if (_index < max_index) {
                         if (page->header.is_leaf) {
                             break;
@@ -356,7 +341,6 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                     }
                     page = & _btree->get_page(_page_index);
                 }
-                show_path();
                 _key = page->keys + _index;
                 _value = page->values + _index;
                 return;

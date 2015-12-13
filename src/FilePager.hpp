@@ -178,42 +178,6 @@ struct FilePager : FileHandler<size_t> {
         memset(page, 0, page_size);
         pages.insert(std::pair<size_t, page_t*>(page_index, page));
         return * page;
-
-
-        /*
-        // try to retrieve from cache
-        auto it = _page_maps.find(page_index);
-        if (it != _page_maps.end()) {
-            return * it->second.data();
-        }
-        // find an unoccupied space
-        size_t page_position;
-        if (__page_maps_size < pages_max_count) {
-            page_position = __page_maps_size++;
-        } else {
-            page_position = 0;
-            size_t page_position_uses = _page_uses[0];
-            for (size_t i=1; i<pages_max_count; i++) {
-                if (_page_uses[i] < page_position_uses) {
-                    page_position_uses = _page_uses[i];
-                    page_position = i;
-                }
-            }
-            _total_page_uses -= page_position_uses;
-            _page_maps.erase(page_position);
-        }
-        // set the memory at this position
-        _total_page_uses++;
-        _page_uses[page_position]++;
-        __page_maps[page_position].set((page_index + 1) * page_size, page_size);
-        _page_maps.insert(
-            std::pair<size_t, FileHandlerMap<size_t, page_t>&>(
-                page_index,
-                __page_maps[page_position]
-            )
-        );
-        return * __page_maps[page_position].data();
-        */
     }
 
 };

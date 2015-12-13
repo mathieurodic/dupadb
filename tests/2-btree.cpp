@@ -74,34 +74,21 @@ int main(int argc, char const *argv[]) {
     message("%u KEYS PER PAGE", btree.max_keys_count);
 
     std::map<str_t<>, uint32_t> key2value;
-    for (uint64_t i=0; i<500; i++) {
-
+    for (uint64_t i=0; i<256*256; i++) {
+        if (i && i % 256 == 0) {
+            message("...%u...", i);
+        }
         uint16_t value = i;
         key = number2expression(value);
 
-        // btree.show();
-        // message("INSERT: %s/%u", key._data, value);
-
-        // btree.show();
-        message("...%lu...", i);
         btree.insert(key, value);
         key2value[key] = value;
-        // btree.show();
 
-        // if (i<10)continue;
         if (!btree.show_check(key2value)) {
-            // btree.show();
             btree.show_pages();
             finish(return);
         }
     }
 
-
-    uint64_t count = 0;
-    for (auto it=btree.begin(); it!=btree.end(); ++it) {
-        debug("%-6lu `%s` -> %u", count++, it.key().data(), it.value());
-    }
-    message("");
-    // btree.show();
     finish(return);
 }
