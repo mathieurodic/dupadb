@@ -50,10 +50,9 @@ struct BTreePage {
     // header
     struct header_t {
         // flags
-        bool is_leaf : sizeof(size_t) / 2;
-        bool is_root : sizeof(size_t) / 2;
+        bool is_leaf : sizeof(size_t);
+        bool is_root : sizeof(size_t);
         size_t index;
-        size_t parent_index;
         size_t keys_count;
     };
     header_t header;
@@ -105,7 +104,7 @@ struct BTreePage {
     // debugging
     inline void show() {
         debug("IS%s LEAF / IS%s ROOT", header.is_leaf ? "" : " NOT", header.is_root ? "" : " NOT");
-        debug("INDEX = %u, PARENT INDEX = %u, KEYS COUNT = %u", header.index, header.parent_index, header.keys_count);
+        debug("INDEX = %u, KEYS COUNT = %u", header.index, header.keys_count);
         if (!header.is_leaf) {
             debug("¤ -> %u", values[0]);
         }
@@ -116,7 +115,7 @@ struct BTreePage {
 };
 
 template <typename size_t, typename key_t, size_t page_size>
-const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 9;
+const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 15;
 // const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
 
 
@@ -143,14 +142,13 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         }
     }
 
-    inline page_t& new_page(const size_t parent_index=0) {
+    inline page_t& new_page() {
         size_t page_index;
         page_t& page = this->get_page(page_index = this->header->page_count++);
         page.header = {
             .is_leaf = true,
             .is_root = false,
             .index = page_index,
-            .parent_index = parent_index,
             .keys_count = 0
         };
         return page;
@@ -163,12 +161,12 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         if (page.header.is_leaf) {
             if (page.header.is_root) {
                 // first new child
-                page_t& child1 = new_page(page.header.index);
+                page_t& child1 = new_page();
                 memcpy(child1.keys, page.keys, split_left * sizeof(key_t));
                 memcpy(child1.values, page.values, split_left * sizeof(size_t));
                 child1.header.keys_count = split_left;
                 // second new child
-                page_t& child2 = new_page(page.header.index);
+                page_t& child2 = new_page();
                 memcpy(child2.keys, page.keys + split_left, split_right * sizeof(key_t));
                 memcpy(child2.values, page.values + split_left, split_right * sizeof(size_t));
                 child2.header.keys_count = split_right;
@@ -182,7 +180,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                 // original page
                 page.header.keys_count = split_left;
                 // new sibling
-                page_t& sibling = new_page(page.header.parent_index);
+                page_t& sibling = new_page();
                 memcpy(sibling.keys, page.keys + split_left, split_right * sizeof(key_t));
                 memcpy(sibling.values, page.values + split_left, split_right * sizeof(size_t));
                 sibling.header.keys_count = split_right;
@@ -193,17 +191,17 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
         } else {
             if (page.header.is_root) {
                 // first new child
-                page_t& child1 = new_page(page.header.index);
+                page_t& child1 = new_page();
                 child1.header.is_leaf = false;
                 child1.header.keys_count = split_left;
                 memcpy(child1.keys, page.keys, split_left * sizeof(key_t));
-                memcpy(child1.values, page.values, (split_left + 1) * sizeof(key_t));
+                memcpy(child1.values, page.values, (split_left + 1) * sizeof(size_t));
                 // second new child
-                page_t& child2 = new_page(page.header.index);
+                page_t& child2 = new_page();
                 child2.header.is_leaf = false;
                 child2.header.keys_count = split_right - 1;
                 memcpy(child2.keys, page.keys + split_left + 1, (split_right - 1) * sizeof(key_t));
-                memcpy(child2.values, page.values + split_left + 1, split_right * sizeof(key_t));
+                memcpy(child2.values, page.values + split_left + 1, split_right * sizeof(size_t));
                 // original
                 page.header.keys_count = 1;
                 page.keys[0] = split_key;
@@ -211,11 +209,11 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                 page.values[1] = child2.header.index;
             } else {
                 // new sibling
-                page_t& sibling = new_page(page.header.parent_index);
+                page_t& sibling = new_page();
                 sibling.header.is_leaf = false;
                 sibling.header.keys_count = split_right - 1;
                 memcpy(sibling.keys, page.keys + split_left + 1, (split_right - 1) * sizeof(key_t));
-                memcpy(sibling.values, page.values + split_left + 1, split_right * sizeof(key_t));
+                memcpy(sibling.values, page.values + split_left + 1, split_right * sizeof(size_t));
                 // original
                 page.header.keys_count = split_left;
                 // parent

@@ -164,6 +164,9 @@ struct FilePager : FileHandler<size_t> {
         if (munmap(header, sizeof(header_t)) == -1) {
             fatal("error while unmapping header for: `%s`", this->_path);
         }
+        for (auto it=pages.begin(); it!=pages.end(); it++) {
+            free(it->second);
+        }
         debug("close file `%s`", this->_path);
     }
 
@@ -175,6 +178,9 @@ struct FilePager : FileHandler<size_t> {
             return * it->second;
         }
         page_t* page = (page_t*) malloc(page_size);
+        if (page == NULL) {
+            fatal("could not allocate %u bytes", page_size);
+        }
         memset(page, 0, page_size);
         pages.insert(std::pair<size_t, page_t*>(page_index, page));
         return * page;

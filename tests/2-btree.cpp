@@ -72,22 +72,30 @@ int main(int argc, char const *argv[]) {
     str_t<> key;
     BTree<uint32_t, str_t<>> btree("storage/test_2");
     message("%u KEYS PER PAGE", btree.max_keys_count);
+    message("%lu BYTES PER PAGE", sizeof(BTreePage<uint32_t, str_t<>, 4096>));
 
     std::map<str_t<>, uint32_t> key2value;
-    for (uint64_t i=0; i<256*256; i++) {
-        if (i && i % 256 == 0) {
-            message("...%u...", i);
+    for (uint64_t i=0; i<1024*1024; i++) {
+        // message("...%lu...", i);
+        if (i && i % 1024 == 0) {
+            // message("...%lu...", i);
+            // if (!btree.show_check(key2value)) {
+            //     btree.show_pages();
+            //     finish(return);
+            // }
         }
-        uint16_t value = i;
+
+
+        uint32_t value = i;
         key = number2expression(value);
 
         btree.insert(key, value);
         key2value[key] = value;
 
-        if (!btree.show_check(key2value)) {
-            btree.show_pages();
-            finish(return);
-        }
+    }
+    if (!btree.show_check(key2value)) {
+        btree.show_pages();
+        finish(return);
     }
 
     finish(return);
