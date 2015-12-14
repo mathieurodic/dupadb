@@ -115,8 +115,7 @@ struct BTreePage {
 };
 
 template <typename size_t, typename key_t, size_t page_size>
-const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = 15;
-// const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
+const size_t BTreePage<size_t, key_t, page_size>::max_keys_count = (page_size - sizeof(header_t) - sizeof(size_t)) / (sizeof(key_t) + sizeof(size_t));
 
 
 // The B-tree itself
@@ -437,7 +436,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
                     return false;
                 }
             }
-            if (previous_key >= it.key()) {
+            if (previous_key > it.key()) {
                 if (show) {
                     error("ORDER ERROR: %s >= %s", previous_key._data, it.key()._data);
                 } else {

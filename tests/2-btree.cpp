@@ -19,6 +19,10 @@ struct str_t {
         strncpy(_data, source._data, size);
     }
 
+    inline const int comp(const str_t<size>& other) const {
+        return memcmp(_data, other._data, size);
+    }
+
     inline bool operator != (const char* other) const {
         return strncmp(_data, other, size) != 0;
     }
@@ -26,25 +30,20 @@ struct str_t {
         return strncmp(_data, other.c_str(), size) != 0;
     }
 
-    inline bool operator < (const str_t<size>& other) const {
-        // notice("`%s` < `%s` : %s", _data, other._data, (memcmp(_data, other._data, size) < 0) ? "TRUE" : "FALSE");
-        return (memcmp(_data, other._data, size) < 0);
+    inline const bool operator < (const str_t<size>& other) const {
+        return (comp(other) < 0);
     }
-    inline bool operator <= (const str_t<size>& other) const {
-        // notice("`%s` <= `%s` : %s", _data, other._data, (memcmp(_data, other._data, size) <= 0) ? "TRUE" : "FALSE");
-        return (memcmp(_data, other._data, size) <= 0);
+    inline const bool operator <= (const str_t<size>& other) const {
+        return (comp(other) <= 0);
     }
-    inline bool operator == (const str_t<size>& other) const {
-        // notice("`%s` == `%s` : %s", _data, other._data, (memcmp(_data, other._data, size) == 0) ? "TRUE" : "FALSE");
-        return (memcmp(_data, other._data, size) == 0);
+    inline const bool operator == (const str_t<size>& other) const {
+        return (comp(other) == 0);
     }
-    inline bool operator >= (const str_t<size>& other) const {
-        // notice("`%s` >= `%s` : %s", _data, other._data, (memcmp(_data, other._data, size) >= 0) ? "TRUE" : "FALSE");
-        return (memcmp(_data, other._data, size) >= 0);
+    inline const bool operator >= (const str_t<size>& other) const {
+        return (comp(other) >= 0);
     }
-    inline bool operator > (const str_t<size>& other) const {
-        // notice("`%s` > `%s` : %s", _data, other._data, (memcmp(_data, other._data, size) > 0) ? "TRUE" : "FALSE");
-        return (memcmp(_data, other._data, size) > 0);
+    inline const bool operator > (const str_t<size>& other) const {
+        return (comp(other) > 0);
     }
     inline const str_t<size>& operator = (const str_t<size>& source) {
         memcpy(_data, source._data, size);
