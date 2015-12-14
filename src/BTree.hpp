@@ -6,7 +6,7 @@
 #include "FilePager.hpp"
 
 #include <vector>
-#include <map>
+#include <unordered_map>
 #include <set>
 
 // File header for B-trees
@@ -409,7 +409,7 @@ struct BTree : FilePager<BTreeHeader<size_t, key_t, page_size>, size_t, page_siz
             }
         }
     }
-    inline const bool show_check(const std::map<key_t, size_t>& key2value, bool show=false) {
+    inline const bool show_check(const std::unordered_map<key_t, size_t>& key2value, bool show=false) {
         key_t previous_key;
         size_t count = 0;
         std::set<key_t> keys;
