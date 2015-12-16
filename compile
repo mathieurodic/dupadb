@@ -3,7 +3,7 @@
 # initial parameters
 COMPILER="clang++"
 INCLUDE_FOLDER="src"
-LIBS=""
+LIBS="pthread"
 NOWARNING_FLAGS="c++11-compat-deprecated-writable-strings invalid-offsetof char-subscripts"
 OPTIMISATION_LEVEL="3"
 
