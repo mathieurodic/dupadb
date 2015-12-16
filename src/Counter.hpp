@@ -66,6 +66,10 @@ struct Counter : FilePager<
         );
         return counter + 1;
     }
+    inline value_t& get(const size_t identifier) {
+        size_t counter = identifier - 1;
+        return this->get_page(counter / values_per_page).values[counter % values_per_page];
+    }
 
 };
 

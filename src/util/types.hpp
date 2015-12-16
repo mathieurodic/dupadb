@@ -5,6 +5,8 @@
 #include <unordered_map>
 
 
+// fixed-sized character strings
+
 template<uint32_t size=256>
 struct str_t {
     char _data[size];
@@ -78,6 +80,7 @@ namespace std {
         }
     };
 }
+
 
 
 #endif // __INCLUDED__utils__types_hpp__
